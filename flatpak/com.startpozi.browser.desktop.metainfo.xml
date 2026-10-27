@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>com.startpozi.browser.desktop</id>
+
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-only</project_license>
+  <name>StartPOZI Browser</name>
+  <summary>Safe private browser without telemetry</summary>
+  <summary xml:lang="ru">Безопасный приватный браузер без телеметрии</summary>
+
+  <description>
+    <p>
+      StartPOZI Browser is an independent private browser based on
+      Chromium (Electron). No telemetry, no hidden trackers, and every
+      default is tuned for privacy.
+    </p>
+    <p xml:lang="ru">
+      Независимый приватный браузер на базе Chromium (Electron).
+      Без телеметрии, без скрытых трекеров, все настройки по умолчанию
+      настроены на защиту от слежки.
+    </p>
+    <ul>
+      <li>Ad blocker with 44 filter lists</li>
+      <li>Automatic cookie-banner dismissal</li>
+      <li>Tor with obfs4 / snowflake / webtunnel bridges</li>
+      <li>Anti-fingerprinting, URL tracker cleaning, DNT + Sec-GPC</li>
+      <li>Passwords encrypted at rest (AES-256-GCM), TOTP, backups</li>
+    </ul>
+  </description>
+
+  <launchable type="desktop-id">com.startpozi.browser.desktop.desktop</launchable>
+
+  <developer_name>StartPOZI Project</developer_name>
+  <url type="homepage">https://github.com/StartPOZI/StartPOZI-Desktop-Browser-beta-</url>
+  <url type="bugtracker">https://github.com/StartPOZI/StartPOZI-Desktop-Browser-beta-/issues</url>
+
+  <content_rating type="oars-1.1"/>
+
+  <requires>
+    <display_length compare="ge">360</display_length>
+  </requires>
+
+  <releases>
+    <release version="1.0.0" date="2026-10-27">
+      <description>
+        <p>Beta release.</p>
+        <p xml:lang="ru">Бета-релиз.</p>
+      </description>
+    </release>
+  </releases>
+</component>

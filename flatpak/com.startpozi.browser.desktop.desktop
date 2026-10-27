@@ -1,0 +1,15 @@
+[Desktop Entry]
+Type=Application
+Name=StartPOZI Browser
+Name[ru]=Браузер StartPOZI
+GenericName=Web Browser
+GenericName[ru]=Веб-браузер
+Comment=The safe private browser
+Comment[ru]=Безопасный приватный браузер
+# command from the flatpak manifest (installed as /app/bin/startpozi.sh)
+Exec=startpozi.sh %U
+Icon=com.startpozi.browser.desktop
+Terminal=false
+Categories=Network;WebBrowser;
+StartupWMClass=startpozi-desktop-browser-beta
+MimeType=x-scheme-handler/http;x-scheme-handler/https;x-scheme-handler/about;text/html;application/xhtml+xml;text/xml;

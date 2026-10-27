@@ -1,0 +1,177 @@
+# Flatpak manifest for StartPOZI Browser
+# Build:
+#   flatpak-builder --user --install --force-clean \
+#     .flatpak-build packaging/flatpak/com.startpozi.browser.desktop.yml
+#
+# Requires (once):
+#   flatpak install flathub \
+#     org.freedesktop.Sdk//24.08 org.freedesktop.Platform//24.08 \
+#     org.electronjs.Electron2.BaseApp//24.08
+#   flatpak install flathub \
+#     org.freedesktop.Sdk.Extension.golang//24.08 \
+#     org.freedesktop.Sdk.Extension.node20//24.08
+#
+# Tor + pluggable transports (obfs4proxy / snowflake-client /
+# webtunnel-client) are installed into /app/bin — the app locates them
+# via PATH lookup (`which tor`, see main.js::_findTorBinary).
+
+app-id: com.startpozi.browser.desktop
+runtime: org.freedesktop.Platform
+runtime-version: "24.08"
+sdk: org.freedesktop.Sdk
+base: org.electronjs.Electron2.BaseApp
+base-version: "24.08"
+command: startpozi.sh
+separate-locales: false
+
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.golang
+  - org.freedesktop.Sdk.Extension.node20
+
+finish-args:
+  # Browser: network is the whole point
+  - --share=network
+  # X11 / IPC / Wayland
+  - --share=ipc
+  - --socket=fallback-x11
+  - --socket=wayland
+  # Sound (TTS / WebAudio)
+  - --socket=pulseaudio
+  # GPU acceleration
+  - --device=dri
+  # Printing
+  - --socket=cups
+  # Saving downloads
+  - --filesystem=xdg-download
+  # OS keychain (libsecret storage for passwords without master password)
+  - --talk-name=org.freedesktop.secrets
+  - --talk-name=org.kde.kwalletd6
+  # Desktop notifications
+  - --talk-name=org.freedesktop.Notifications
+  # Chromium on Wayland
+  - --env=ELECTRON_OZONE_PLATFORM_HINT=auto
+
+modules:
+  # ------------------------------------------------------------- tor
+  - name: tor
+    buildsystem: autotools
+    config-opts:
+      - --disable-asciidoc
+      - --disable-manpage
+      - --disable-systemd
+      - --disable-module-dirauth
+      - --prefix=/app
+    sources:
+      - type: archive
+        url: https://dist.torproject.org/tor-0.4.8.25.tar.gz
+        sha256: 371cd22178fa4b35e64b03933403890795ce3e304c5850a5b59adcc68820a799
+        x-checker-data:
+          type: anitya
+          project-id: 4991
+          stable-only: true
+          url-template: https://dist.torproject.org/tor-$VERSION.tar.gz
+
+  # ------------------------------------------------- pluggable transports
+  - name: obfs4proxy
+    buildsystem: simple
+    build-options:
+      append-path: /usr/lib/sdk/golang/bin
+      env:
+        GO111MODULE: "on"
+        GOPROXY: https://proxy.golang.org,direct
+        GOPATH: /run/build/obfs4proxy/gopath
+        GOCACHE: /run/build/obfs4proxy/gocache
+        GOTOOLCHAIN: local
+    build-commands:
+      - go build -trimpath -o /app/bin/obfs4proxy ./obfs4proxy
+    sources:
+      - type: git
+        url: https://gitlab.com/yawning/obfs4.git
+        # obfs4 scramblesuit / obfs4 transport; tag example: obfs4proxy-0.1.0.000
+        # (pin a specific commit/tag for reproducible builds)
+
+  - name: snowflake-client
+    buildsystem: simple
+    build-options:
+      append-path: /usr/lib/sdk/golang/bin
+      env:
+        GO111MODULE: "on"
+        GOPROXY: https://proxy.golang.org,direct
+        GOPATH: /run/build/snowflake-client/gopath
+        GOCACHE: /run/build/snowflake-client/gocache
+        GOTOOLCHAIN: local
+    build-commands:
+      - go build -trimpath -o /app/bin/snowflake-client ./client
+    sources:
+      - type: git
+        url: https://gitlab.torproject.org/tpo/anti-censorship/pluggable-transports/snowflake.git
+
+  - name: webtunnel-client
+    buildsystem: simple
+    build-options:
+      append-path: /usr/lib/sdk/golang/bin
+      env:
+        GO111MODULE: "on"
+        GOPROXY: https://proxy.golang.org,direct
+        GOPATH: /run/build/webtunnel-client/gopath
+        GOCACHE: /run/build/webtunnel-client/gocache
+        GOTOOLCHAIN: local
+    build-commands:
+      - go build -trimpath -o /app/bin/webtunnel-client ./main/client
+    sources:
+      - type: git
+        url: https://gitlab.torproject.org/tpo/anti-censorship/pluggable-transports/webtunnel.git
+
+  # ------------------------------------------------------- the browser
+  - name: startpozi-browser
+    buildsystem: simple
+    build-options:
+      append-path: /usr/lib/sdk/node20/bin
+      env:
+        # keep all caches inside the writable build dir
+        npm_config_cache: /run/build/startpozi-browser/npm-cache
+        ELECTRON_CACHE: /run/build/startpozi-browser/electron-cache
+        ELECTRON_BUILDER_CACHE: /run/build/startpozi-browser/electron-builder-cache
+        npm_config_progress: "false"
+    sources:
+      # project root (manifest sits in packaging/flatpak/)
+      - type: dir
+        path: ../..
+        skip:
+          - node_modules
+          - dist
+          - docs
+          - Запас
+          - .drm
+          - update-server
+          - packaging
+          - .flatpak-build
+          - .git
+      - type: file
+        path: startpozi-wrapper.sh
+      - type: file
+        path: com.startpozi.browser.desktop.desktop
+      - type: file
+        path: com.startpozi.browser.desktop.metainfo.xml
+      - type: file
+        path: ../../assets/favicon/icon.png
+    build-commands:
+      # package-lock.json is present -> reproducible dependency tree
+      - npm ci --no-audit --no-fund
+      # unpacked dir build (no AppImage/deb inside the sandbox)
+      - npx electron-builder --linux dir --publish never
+      - cp -a dist/linux-unpacked /app/browser
+      # launcher (zypak handles the Chromium sandbox inside Flatpak)
+      - install -Dm755 startpozi-wrapper.sh /app/bin/startpozi.sh
+      # desktop entry / appstream / icon
+      - install -Dm644 com.startpozi.browser.desktop.desktop
+        /app/share/applications/com.startpozi.browser.desktop.desktop
+      - install -Dm644 com.startpozi.browser.desktop.metainfo.xml
+        /app/share/metainfo/com.startpozi.browser.desktop.metainfo.xml
+      - install -Dm644 icon.png
+        /app/share/icons/hicolor/1024x1024/apps/com.startpozi.browser.desktop.png
+    cleanup:
+      - /browser/chrome-sandbox
+      - /include
+      - /lib/pkgconfig
+      - /share/man
